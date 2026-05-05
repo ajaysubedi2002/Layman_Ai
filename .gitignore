@@ -141,7 +141,6 @@ thumbs.db
 *.pth
 *.onnx
 best/
-best (1).pt
 
 # Dataset / output directories
 data/
@@ -158,3 +157,4 @@ Icon?
 *.bak
 *.swp
 
+input_sample_video.mp4
