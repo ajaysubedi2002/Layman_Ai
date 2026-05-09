@@ -1,4 +1,4 @@
-DETECTION_MODEL     = "models/100epoch.pt"
+DETECTION_MODEL     = "models/best.pt"
 POSE_MODEL          = "models/yolov8n-pose.pt"
 VIDEO_PATH          = "vedio/paddlevedio.mp4"
 OUTPUT_VIDEO        = "Inference/paddlevedio.mp4"

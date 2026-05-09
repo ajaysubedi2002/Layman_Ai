@@ -3,6 +3,7 @@ import cv2
 import json
 import numpy as np
 from collections import deque
+import argparse
 
 from config import *
 from utils.model_loader import load_models
@@ -17,9 +18,9 @@ from video.writer import get_writer
 from video.ffmpeg_utils import reencode, reencode_with_match
 
 
-def run():    
+def run(video_path=VIDEO_PATH, output_video=OUTPUT_VIDEO, output_json=OUTPUT_JSON):
     det_model, ball_model, pose_model = load_models()
-    cap   = cv2.VideoCapture(VIDEO_PATH)
+    cap   = cv2.VideoCapture(video_path)
     fps   = cap.get(cv2.CAP_PROP_FPS) or 30.0
     W     = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     H     = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -27,14 +28,14 @@ def run():
     cap.release()
     print(f"Video: {W}×{H}  {fps:.1f}fps  {total} frames\n")
 
-    # ── Writer setup (temp file → re-encoded final) ───────────
-    os.makedirs(os.path.dirname(OUTPUT_VIDEO) or ".", exist_ok=True)
-    in_ext    = os.path.splitext(VIDEO_PATH)[1] or ".mp4"
-    base      = os.path.splitext(OUTPUT_VIDEO)[0]
+    os.makedirs(os.path.dirname(output_video) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(output_json) or ".", exist_ok=True)
+
+    in_ext    = os.path.splitext(video_path)[1] or ".mp4"
+    base      = os.path.splitext(output_video)[0]
     temp      = f"{base}_temp{in_ext}"
     writer, temp_path = get_writer(temp, fps, W, H)
 
-    # ── ReID tracker ─────────────────────────────────────────
     diag      = np.hypot(W, H)
     reid_dist = max(90, int(0.12 * diag))
     reid = StablePlayerID(
@@ -44,7 +45,6 @@ def run():
         size_ratio_min=0.35,
     )
 
-    # ── Per-player state ──────────────────────────────────────
     player_racket_hist: dict[str, deque] = {}
     player_shot:        dict[str, str]   = {}
     player_shot_timer:  dict[str, int]   = {}
@@ -61,10 +61,9 @@ def run():
     all_data  = []
     frame_idx = 0
 
-    # ── Detection + tracking stream ──────────────────────────
     print("Starting tracking pipeline...")
     det_results = det_model.track(
-        source=VIDEO_PATH,
+        source=video_path,
         conf=CONF_THRESHOLD,
         stream=True,
         persist=True,
@@ -75,7 +74,6 @@ def run():
         frame_idx += 1
         frame = r.orig_img.copy()
 
-        # ── Pose estimation ───────────────────────────────────
         pose_results   = pose_model(frame, verbose=False)
         pose_kpts_list = []
         if pose_results and pose_results[0].keypoints is not None:
@@ -86,7 +84,6 @@ def run():
                 if kp_data[i].shape[0] > R_SHOULDER and kp_data[i].shape[1] >= 3
             ]
 
-        # ── Ball detection (unified, conflict-free) ───────────
         ball_boxes = detect_balls(ball_model, frame, r.boxes, r.names)
 
         for x1, y1, x2, y2, conf in ball_boxes:
@@ -96,7 +93,6 @@ def run():
 
         draw_ball_trail(frame, ball_trail)
 
-        # ── Parse player / racket detections ──────────────────
         active_ids   = set()
         id_centres   = {}
         racket_boxes = []
@@ -152,7 +148,6 @@ def run():
                         if np.hypot(rx - cx, ry - cy) < 200:
                             player_racket_hist[label].append((rx, ry))
 
-                    # ── Classify shot ─────────────────────────
                     shot = classify_shot(
                         pose_feats, player_racket_hist[label], H
                     )
@@ -187,7 +182,6 @@ def run():
 
         reid.mark_lost(frame_idx, active_ids, id_centres)
 
-        # ── Frame counter overlay ─────────────────────────────
         cv2.putText(
             frame, f"Frame {frame_idx}/{total}",
             (10, H - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
@@ -205,30 +199,53 @@ def run():
     writer.release()
     print("\nRe-encoding to H.264 …")
 
-    if reencode(temp_path, OUTPUT_VIDEO):
+    if reencode(temp_path, output_video):
         try:
             os.remove(temp_path)
         except Exception:
             pass
-        print(f"Video saved: {OUTPUT_VIDEO}")
-    elif reencode_with_match(temp_path, OUTPUT_VIDEO, VIDEO_PATH):
+        print(f"Video saved: {output_video}")
+    elif reencode_with_match(temp_path, output_video, video_path):
         try:
             os.remove(temp_path)
         except Exception:
             pass
-        print(f"Video saved: {OUTPUT_VIDEO}")
+        print(f"Video saved: {output_video}")
     else:
-        raw = OUTPUT_VIDEO.replace(".mp4", "_raw.avi")
+        raw = output_video.replace(".mp4", "_raw.avi")
         os.rename(temp_path, raw)
         print(f"FFmpeg unavailable — saved raw video as: {raw}  (open with VLC)")
 
     print("Saving match data...")
-    with open(OUTPUT_JSON, "w") as f:
+    with open(output_json, "w") as f:
         json.dump(all_data, f, indent=2)
 
-    print(f"JSON saved: {OUTPUT_JSON}")
+    print(f"JSON saved: {output_json}")
     print(f"Done — {frame_idx} frames processed.")
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(
+        description="Padel shot detection pipeline",
+    )
+    parser.add_argument(
+        "--input",
+        default=VIDEO_PATH,
+        help="Input video path (default: config VIDEO_PATH)",
+    )
+    parser.add_argument(
+        "--output-video",
+        default=OUTPUT_VIDEO,
+        help="Output video path (default: config OUTPUT_VIDEO)",
+    )
+    parser.add_argument(
+        "--output-json",
+        default=OUTPUT_JSON,
+        help="Output JSON path (default: config OUTPUT_JSON)",
+    )
+    args = parser.parse_args()
+    run(
+        video_path=args.input,
+        output_video=args.output_video,
+        output_json=args.output_json,
+    )
