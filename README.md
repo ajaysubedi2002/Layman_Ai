@@ -173,16 +173,14 @@ Shot classification is rule-based on those pose features, with temporal smoothin
 ### Improvements To Make
 
 - Train a temporal shot classifier (e.g., 1D CNN/Transformer over pose sequences) to replace heuristic rules.
-- Add ball re-identification with trajectory filtering (Kalman + appearance cues) to cut false positives.
+- Add ball re-identification with trajectory filtering to cut false positives.
 - Incorporate court line detection to normalize player positions and improve left/right swing inference.
-- Add automated evaluation (precision/recall for detections, per-class F1 for shots) and a labeled validation set.
 - Export frame-aligned features for model training (pose + ball trajectory + player velocity).
+- developed the analytical dashboard which  gives the  proper evaluations  of the players 
 
 ## Models
-
-- Detection: models/100epoch.pt (custom YOLOv8 trained on padel classes)
+- Detection: models/best.pt (custom YOLOv8 trained on padel classes)
 - Pose: models/yolov8n-pose.pt (COCO 17-point)
-- Backup/older weights: old_backup/
 
 ## Limitations
 
