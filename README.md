@@ -11,10 +11,51 @@ Core features:
 - Ball trail visualization and shot labels on video
 - JSON export with per-frame detections and pose features
 
-## Video Inferences link
+## Project Structure
+```
+|-- config.py                - Global settings and default paths
+|-- main.py                  - Main pipeline entrypoint
+|-- Padel shot detector .py  - Legacy/alternate script
+|-- README.md                - Project documentation
+|-- requirements.txt         - Python dependencies
+|-- shot_detections.json     - Example output JSON
+|-- env/                     - Local Python virtual environment
+|-- json/
+|   |-- custom_detections.json - Example custom detections
+|-- models/
+|   |-- __init__.py           
+|   |-- best.pt               - Custom detection model weights
+|   |-- yolov8n-pose.pt       - Pose model weights
+|-- pose/
+|   |-- __init__.py           
+|   |-- features.py           - Pose feature extraction
+|-- shots/
+|   |-- __init__.py           
+|   |-- classifier.py         - Rule-based shot classifier
+|-- tracking/
+|   |-- __init__.py          
+|   |-- ball_detection.py     - Ball detection helpers
+|   |-- drawing.py            - Visualization utilities
+|   |-- stable_player_id.py   - Stable player ID assignment
+|-- utils/
+|   |-- __init__.py          
+|   |-- model_loader.py       - Model loading helpers
+|-- video/
+|   |-- __init__.py           
+|   |-- ffmpeg_utils.py       - Video re-encode utilities
+|   |-- writer.py             - Video writer setup
+```
 
-- [Inference video 1](https://drive.google.com/file/d/1YU1tdObcEHsx9hq00dAaWjplTaI-eq84/view?usp=sharing)
-- [Inference video 2](https://drive.google.com/file/d/110Sr_1b89bltZ4oVJ2O6q2KzdE4HW2KP/view?usp=drive_link)
+---
+ 
+## Inference Samples
+ 
+| Sample | Link |
+|--------|------|
+| Inference Video 1 | [Watch on Drive](https://drive.google.com/file/d/1YU1tdObcEHsx9hq00dAaWjplTaI-eq84/view?usp=sharing) |
+| Models | [link to download model form Drive](https://drive.google.com/drive/u/0/folders/1LaZCAYqWHaSErXr8-h2G8t9qR_AkodBS) |
+ 
+---
 
 ## Setup
 
@@ -26,7 +67,7 @@ pip install ultralytics opencv-python numpy
 ```
 
 3. Ensure the model weights exist:
-- models/100epoch.pt (custom detection)
+- models/best.pt (custom detection)
 - models/yolov8n-pose.pt (pose model)
 
 ## Usage
@@ -149,8 +190,3 @@ Shot classification is rule-based on those pose features, with temporal smoothin
 - Ball detection uses a low threshold; false positives are possible.
 - Tracking assumes N_PLAYERS players; unusual camera angles or occlusions reduce stability.
 
-
-## Roadmap
-
-- Add learned shot classifier (temporal model) instead of pure rules.
-- Improve ball re-ID and occlusion handling.
